@@ -44,9 +44,8 @@ def cell(field, raw):
     return value
 
 
-def parse_rows(text):
-    reader = csv.DictReader(io.StringIO(text.removeprefix('\ufeff'), newline=''), strict=True)
-    fields = SPEC['fields']
+def _parse(text, fields, max_rows=5000):
+    reader = csv.DictReader(io.StringIO(text.removeprefix('﻿'), newline=''), strict=True)
     keys = {field['key'] for field in fields}
     required = {field['key'] for field in fields if field.get('required', True)}
     rows = []
@@ -55,8 +54,8 @@ def parse_rows(text):
         if not required <= set(headers) or not set(headers) <= keys or len(headers) != len(set(headers)):
             raise ValueError('CSV 表头与字段说明不符，请下载模板检查列名')
         for raw in reader:
-            if len(rows) >= 5000:
-                raise ValueError('一个数据批次最多导入 5000 行')
+            if len(rows) >= max_rows:
+                raise ValueError(f'一个数据批次最多导入 {max_rows} 行')
             try:
                 if None in raw or any(value is None for value in raw.values()):
                     raise ValueError('工作表的列数与表头不一致')
@@ -67,8 +66,34 @@ def parse_rows(text):
         raise ValueError(f'CSV 第 {reader.line_num} 行附近格式不正确') from None
     if not rows:
         raise ValueError('CSV 至少需要一行有效数据')
+    return rows
+
+
+def parse_rows(text):
+    rows = _parse(text, SPEC['fields'])
     if hasattr(analysis, 'validate_rows'):
         analysis.validate_rows(rows)
+    return rows
+
+
+def parse_finance_rows(text):
+    rows = _parse(text, SPEC['finance_fields'])
+    days = {}
+    for index, row in enumerate(rows, start=1):
+        day = row['finance_day']
+        bucket = days.setdefault(day, {'total_rows': 0, 'detail_rows': 0})
+        if row.get('reader_id'):
+            bucket['detail_rows'] += 1
+            if row['refund_count'] != 1:
+                raise ValueError(f'CSV 第 {index + 1} 行 · 带单号的退款行笔数须为 1。')
+        else:
+            bucket['total_rows'] += 1
+    for day, bucket in days.items():
+        if bucket['total_rows'] != 1:
+            raise ValueError(
+                f'财务日 {day} 需要恰好一条 reader_id 为空的每日退款总笔数汇总行，'
+                f'当前为 {bucket["total_rows"]} 条。'
+            )
     return rows
 
 

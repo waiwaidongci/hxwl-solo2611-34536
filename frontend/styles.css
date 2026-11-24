@@ -141,3 +141,18 @@ body[data-page="results"] .main > div > .panel { margin-top:1rem; }
   .account p { display:none; }
 }
 @media(prefers-reduced-motion:reduce) { *,*::after,*::before { transition:none!important; animation:none!important; } }
+
+.kind-switch { display:flex; gap:.5rem; margin-bottom:1rem; }
+.kind-switch a { padding:.45rem .9rem; border:1px solid var(--line); border-radius:.55rem; text-decoration:none; color:var(--muted); background:var(--paper); }
+.kind-switch a.active { background:var(--accent); color:var(--paper); border-color:var(--accent); font-weight:650; }
+.guardrail-banner { border:1px solid var(--line); border-left-width:.35rem; border-radius:.65rem; padding:.85rem 1rem; margin:1rem 0; background:var(--panel); }
+.guardrail-banner strong { display:block; margin-bottom:.3rem; }
+.guardrail-banner p { margin:0; }
+.guardrail-indeterminate { border-left-color:oklch(62% .14 70); }
+.guardrail-indeterminate strong { color:oklch(48% .13 55); }
+.guardrail-pending { border-left-color:oklch(62% .14 70); }
+.guardrail-pending strong { color:oklch(48% .13 55); }
+.guardrail-fail { border-left-color:oklch(48% .18 27); }
+.guardrail-fail strong { color:oklch(43% .17 27); }
+.guardrail-pass { border-left-color:oklch(52% .14 145); }
+.guardrail-pass strong { color:oklch(42% .12 145); }

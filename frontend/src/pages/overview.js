@@ -20,7 +20,8 @@ export async function overview() {
         {label:'时间',render:row=>date(row.created_at)},
       ],feed.slice(0,8),{caption:'最近审计事件'}))),
     el('aside', {class:'sidebar-panel'},
-      panel('当前批次', metrics([{label:'数据批次',value:datasets.length},{label:'运行记录',value:runs.length}]),
+      panel('当前批次', metrics([{label:'结账台账批次',value:datasets.length},
+        {label:'财务日账批次',value:workspace.financeDatasets.length},{label:'运行记录',value:runs.length}]),
         datasets[0] && p(datasets[0].filename,'filename')),
       panel('最近运行', latest ? el('div',{class:'activity'},link(latest.name,`#results/${latest.id}`),
         pill(STATUS[latest.status],latest.status),p(date(latest.created_at),'subtle'))

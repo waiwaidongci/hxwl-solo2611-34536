@@ -11,6 +11,7 @@ class Dataset(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
     filename: Mapped[str] = mapped_column(String(160))
+    kind: Mapped[str] = mapped_column(String(20), default='checkout', index=True)
     checksum: Mapped[str] = mapped_column(String(64))
     rows: Mapped[list] = mapped_column(JSON)
     row_count: Mapped[int]

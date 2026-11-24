@@ -31,9 +31,25 @@ export async function results(route, refresh) {
     el('select',{id:'run-picker',onChange:event=>{location.hash=`#results/${event.target.value}`;}},
       (runs.some(item=>item.id===job.id) ? runs : [job,...runs]).map(item=>el('option',{value:item.id,selected:item.id===job.id},item.name))));
   const result = job.result;
+  const guardrail = result && result.refund_interval;
+  const guardrailBanner = guardrail && guardrail.reconciled && el('div', {
+    class: `guardrail-banner guardrail-${guardrail.guardrail}`,
+    role: 'status', 'data-testid': 'refund-guardrail',
+  }, el('strong', {}, guardrail.guardrail === 'indeterminate'
+      ? '暂缓放量：退款区间两端护栏判断不同'
+      : guardrail.guardrail === 'fail' ? '退款护栏不通过'
+      : guardrail.guardrail === 'pending' ? '退款护栏待确认：仍有支付未满七天'
+      : '退款护栏通过'),
+    p(`B 成熟订单七天内退款精确区间 ${guardrail.lower}–${guardrail.upper} 笔；`
+      + `下界端点护栏${guardrail.lower_gate_ok ? '通过' : '不通过'}，`
+      + `上界端点护栏${guardrail.upper_gate_ok ? '通过' : '不通过'}。`
+      + (guardrail.guardrail === 'indeterminate'
+        ? '维持当前试点范围，待财务补齐退款单号形成新版本后重新发起运行。'
+        : '逐日订单级分配见下方财务日账对账表。'), 'subtle'));
   const analysis = result ? el('section',{class:'analysis','data-testid':'analysis-complete'},
     el('div',{class:'result-head'},p(job.name,'eyeline'),h(2,result.headline),p(result.note,'intro-copy'),
       el('div',{class:'actions'},pill(STATUS[job.status],job.status),download,message)),
+    guardrailBanner,
     metrics(result.metrics),
     result.charts.map(plot),
     (result.sections || []).map(item=>panel(item.title,p(item.text))),

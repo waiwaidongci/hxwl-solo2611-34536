@@ -34,12 +34,29 @@ def index(db: Session = Depends(connection), actor: User = Depends(current)):
 @router.post('', status_code=202)
 def create(body: RunRequest, db: Session = Depends(connection),
            actor: User = Depends(allow(Role.ADMIN, Role.ANALYST))):
-    if not db.get(Dataset, body.dataset_id):
+    checkout = db.get(Dataset, body.dataset_id)
+    if not checkout:
         raise HTTPException(404, '找不到指定的数据批次')
-    item = Run(name=body.name, dataset_id=body.dataset_id, params=normalize_params(body.params), author=actor.username)
+    if checkout.kind != 'checkout':
+        raise HTTPException(400, '运行的主数据批次须为随机结账台账（checkout）。')
+    finance_dataset_id = None
+    finance_checksum = None
+    if body.finance_dataset_id:
+        finance = db.get(Dataset, body.finance_dataset_id)
+        if not finance:
+            raise HTTPException(404, '找不到指定的财务日账批次')
+        if finance.kind != 'finance':
+            raise HTTPException(400, '财务日账批次类型须为 finance。')
+        finance_dataset_id = finance.id
+        finance_checksum = finance.checksum
+    item = Run(name=body.name, dataset_id=body.dataset_id, finance_dataset_id=finance_dataset_id,
+               params=normalize_params(body.params), author=actor.username)
     db.add(item)
     db.flush()
-    record(db, actor.username, 'analysis.queued', item.id, dataset_id=item.dataset_id)
+    record(db, actor.username, 'analysis.queued', item.id, dataset_id=item.dataset_id,
+           finance_dataset_id=finance_dataset_id,
+           checkout_checksum=checkout.checksum,
+           finance_checksum=finance_checksum)
     db.commit()
     wake()
     return views.run(item, detail=True)

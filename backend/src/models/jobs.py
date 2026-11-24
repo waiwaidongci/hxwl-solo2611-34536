@@ -11,6 +11,7 @@ class Schedule(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
     dataset_id: Mapped[int] = mapped_column(ForeignKey('datasets.id'))
+    finance_dataset_id: Mapped[int | None] = mapped_column(ForeignKey('datasets.id'))
     params: Mapped[dict] = mapped_column(JSON)
     recipient: Mapped[str] = mapped_column(String(100))
     next_at: Mapped[datetime] = mapped_column(index=True)
@@ -24,6 +25,7 @@ class Run(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     dataset_id: Mapped[int] = mapped_column(ForeignKey('datasets.id'))
+    finance_dataset_id: Mapped[int | None] = mapped_column(ForeignKey('datasets.id'))
     schedule_id: Mapped[int | None] = mapped_column(ForeignKey('schedules.id'))
     scheduled_at: Mapped[datetime | None]
     name: Mapped[str] = mapped_column(String(120))

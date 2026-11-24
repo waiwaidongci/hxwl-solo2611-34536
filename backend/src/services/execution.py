@@ -33,11 +33,21 @@ def materialize_due():
                     report_day = date.fromisoformat(params[period_key]) + timedelta(days=elapsed_days)
                     params[period_key] = report_day.isoformat()
                     item.params = {**params, period_key: (report_day + timedelta(days=1)).isoformat()}
-                    dataset_id = db.scalar(select(Dataset.id).order_by(Dataset.id.desc()).limit(1)) or dataset_id
+                    # Daily plans roll forward to the newest *checkout* batch; the
+                    # finance batch stays locked to the version chosen at plan creation.
+                    dataset_id = (
+                        db.scalar(select(Dataset.id).where(Dataset.kind == 'checkout')
+                                  .order_by(Dataset.id.desc()).limit(1))
+                        or dataset_id
+                    )
                 item.next_at = due + timedelta(days=1)
             else:
                 item.enabled = False
-            db.add(Run(dataset_id=dataset_id, schedule_id=item.id, scheduled_at=due,
+            # Finance batches are immutable at run creation, including retries:
+            # a concurrent supplementary filing creates a new batch, never mutating this one.
+            finance_dataset_id = item.finance_dataset_id
+            db.add(Run(dataset_id=dataset_id, finance_dataset_id=finance_dataset_id,
+                       schedule_id=item.id, scheduled_at=due,
                        name=item.name, params=params, author=item.author))
 
 
@@ -59,14 +69,17 @@ def claim():
         job.attempt += 1
         job.lease_until = stamp + timedelta(minutes=3)
         records = db.get(Dataset, job.dataset_id).rows
-        return job.id, job.attempt, records, job.params
+        finance_records = (
+            db.get(Dataset, job.finance_dataset_id).rows if job.finance_dataset_id else None
+        )
+        return job.id, job.attempt, records, finance_records, job.params
 
 
 def execute(lease):
-    job_id, attempt, rows, params = lease
+    job_id, attempt, rows, finance_rows, params = lease
     result = export = failure = None
     try:
-        result = analyze(rows, params)
+        result = analyze(rows, params, finance_rows=finance_rows)
         export = write_report(job_id, attempt, result)
     except ValueError as error:
         failure = str(error)[:500]

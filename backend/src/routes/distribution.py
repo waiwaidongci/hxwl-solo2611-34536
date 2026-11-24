@@ -26,8 +26,19 @@ def schedules(db: Session = Depends(connection), actor: User = Depends(current))
 
 @router.post('/schedules', status_code=201)
 def add(body: ScheduleRequest, db: Session = Depends(connection), actor: User = Depends(allow(Role.ADMIN))):
-    if not db.get(Dataset, body.dataset_id):
+    checkout = db.get(Dataset, body.dataset_id)
+    if not checkout:
         raise HTTPException(404, '找不到指定的数据批次')
+    if checkout.kind != 'checkout':
+        raise HTTPException(400, '定时计划的主数据批次须为随机结账台账。')
+    finance_dataset_id = None
+    if body.finance_dataset_id:
+        finance = db.get(Dataset, body.finance_dataset_id)
+        if not finance:
+            raise HTTPException(404, '找不到指定的财务日账批次')
+        if finance.kind != 'finance':
+            raise HTTPException(400, '财务日账批次类型须为 finance。')
+        finance_dataset_id = finance.id
     if body.recipient not in SPEC['recipients']:
         raise ValueError('请选择当前业务的收件团队')
     if body.first_at.utcoffset() is None:
@@ -36,11 +47,14 @@ def add(body: ScheduleRequest, db: Session = Depends(connection), actor: User = 
     stamp = now()
     if first < stamp - timedelta(seconds=30) or first > stamp + timedelta(days=366):
         raise ValueError('请选择从现在起一年内的首次运行时间')
-    item = Schedule(dataset_id=body.dataset_id, params=normalize_params(body.params), name=body.name,
-                    recipient=body.recipient, next_at=first, repeat_daily=body.repeat_daily, author=actor.username)
+    item = Schedule(dataset_id=body.dataset_id, finance_dataset_id=finance_dataset_id,
+                    params=normalize_params(body.params), name=body.name,
+                    recipient=body.recipient, next_at=first, repeat_daily=body.repeat_daily,
+                    author=actor.username)
     db.add(item)
     db.flush()
-    record(db, actor.username, 'schedule.created', item.id, recipient=item.recipient)
+    record(db, actor.username, 'schedule.created', item.id, recipient=item.recipient,
+           finance_dataset_id=finance_dataset_id)
     db.commit()
     wake()
     return views.schedule(item)

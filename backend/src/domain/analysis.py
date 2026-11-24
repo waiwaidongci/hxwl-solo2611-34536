@@ -7,8 +7,8 @@ def validate_rows(rows):
         validator(rows)
 
 
-def analyze(rows, params):
-    raw = analysis.analyze(rows, params)
+def analyze(rows, params, finance_rows=None):
+    raw = analysis.analyze(rows, params, finance_rows=finance_rows)
     tables = []
     for item in raw['tables']:
         columns = [{'key': str(i), 'label': label} for i, label in enumerate(item['columns'])]

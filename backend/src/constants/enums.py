@@ -15,3 +15,7 @@ class Review(StrEnum):
     PENDING = 'pending'
     ACCEPTED = 'accepted'
     RETURNED = 'returned'
+
+class DatasetKind(StrEnum):
+    CHECKOUT = 'checkout'
+    FINANCE = 'finance'

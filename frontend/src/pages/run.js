@@ -1,20 +1,34 @@
 import {datasetField, feedback, field} from '../components/common/fields.js';
 import {empty, panel, pill} from '../components/common/panels.js';
 import {table} from '../components/common/table.js';
+import {el} from '../utils/dom.js';
 import {STATUS} from '../constants/enums.js';
 import {handler} from '../hooks/action.js';
 import {session} from '../stores/session.js';
 import {workspace} from '../stores/workspace.js';
-import {button, el, link, p} from '../utils/dom.js';
+import {button, link, p} from '../utils/dom.js';
 import {date} from '../utils/format.js';
 
+function financeField(financeDatasets, selectedId) {
+  const options = [''].concat(financeDatasets.map(item => String(item.id)));
+  const select = el('select', {id:'field-finance_dataset_id', name:'finance_dataset_id'},
+    el('option', {value:''}, '不挂接财务日账（仅按有单号退款计算）'),
+    ...financeDatasets.map(item => el('option', {value:item.id,
+      selected:String(item.id) === String(selectedId)}, `${item.name} · ${item.row_count} 行`)));
+  return el('label', {for:'field-finance_dataset_id', class:'field'},
+    el('span',{},'发起时锁定的财务退款日账（可选）'), select,
+    el('small', {}, '锁定后本次运行与复盘重试始终使用该批次；并发补报只生成新批次，不影响原运行。'));
+}
+
 function runRequest(data, spec) {
-  return {dataset_id:Number(data.get('dataset_id')),name:data.get('name'),
-    params:Object.fromEntries(spec.params.map(param=>[param.key,data.get(param.key)]))};
+  return {dataset_id:Number(data.get('dataset_id')),
+    finance_dataset_id:data.get('finance_dataset_id') ? Number(data.get('finance_dataset_id')) : null,
+    name:data.get('name'),
+    params:Object.fromEntries(spec.params.map(param => [param.key,data.get(param.key)]))};
 }
 
 export async function runPage(route, refresh) {
-  const {spec,datasets,runs} = workspace;
+  const {spec,datasets,financeDatasets,runs} = workspace;
   const scheduling = spec.scheduled && route.scheduling;
   const plans = scheduling ? await workspace.schedules() : [];
   const error = feedback();
@@ -30,7 +44,7 @@ export async function runPage(route, refresh) {
     onSubmit:handler(submit,error,async event=>{
       const item = await workspace.start(runRequest(new FormData(event.target),spec));
       location.hash = `#results/${item.id}`;
-    })}, datasetField(datasets,route.id),field({key:'name',label:'运行名称',type:'string',max_length:120},`样本${spec.run}`),
+    })}, datasetField(datasets,route.id), financeField(financeDatasets),
     el('div',{class:'form-grid'},spec.params.map(param=>field(param))),el('div',{class:'actions'},submit),scheduleFields,error);
   plan.addEventListener('click',handler(plan,error,async()=>{
     if (!form.reportValidity()) return;
@@ -42,6 +56,7 @@ export async function runPage(route, refresh) {
   }));
   const runList = table([
     {label:'运行',render:item=>link(item.name,`#results/${item.id}`)},
+    {label:'财务日账',render:item=>item.finance_dataset_id ? `批次 #${item.finance_dataset_id}` : '未挂接'},
     {label:'状态',render:item=>pill(STATUS[item.status],item.status)},
     {label:'时间',render:item=>date(item.created_at)},
   ],runs,{caption:'运行记录',empty:'首次运行后将在此显示后台状态。'});
